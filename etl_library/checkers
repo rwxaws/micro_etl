@@ -1,0 +1,123 @@
+checkers::_checkSufficientArguments() {
+  # check if enough parameters were supplied to a function
+  # this is used by other functions that require parameters
+
+  ## PARAMETERS ##
+  #   1: number of required parameters
+  #   2: number of provided parameters
+
+  ## RETURNS ##
+  #   0: sufficient number of arguments was provided
+  #   1: insufficient number of arguments was provided
+
+  declare requiredArgs=$1
+  declare providedArgs=$2
+
+  if [[ "$requiredArgs" -gt "$providedArgs" ]]; then
+    echo "<${FUNCNAME[1]}> provide at least $requiredArgs parameter(s)" >&2
+    return 1
+  fi
+
+  return 0
+}
+
+checkers::_isDir() {
+  # check if the provided argument is a dir or if it exists
+
+  ## PARAMETERS ##
+  #   1: path to check
+
+  ## RETURNS ##
+  #   0: path is a directory
+  #   1: path is NOT a directory
+  #   2: insufficient arguments were provided
+
+  checkers::_checkSufficientArguments "1" "$#" || return 2
+
+  declare dirToCheck=$1
+
+  if [[ ! -d "$dirToCheck" ]]; then
+    echo "<${FUNCNAME[0]}> failed, $dirToCheck is NOT a dir" >&2
+    return 1
+  fi
+
+  return 0
+}
+
+checkers::_isDirEmpty() {
+  # checks if a directory is empty
+
+  ## PARAMETERS ##
+  #   1: a directory to check
+
+  ## RETURNS ##
+  #   0: directory is empty
+  #   1: directory is NOT empty or is NOT a directory
+  #   2: insufficient number of arguments were provided
+
+  checkers::_checkSufficientArguments "1" "$#" || return 2
+
+  declare dirToCheck="$1"
+  declare output
+
+  output=$(checkers::_isDir "$dirToCheck" 2>&1)
+  if [[ "$?" -ne 0 ]]; then
+    echo "<${FUNCNAME[0]}> failed, $output" >&2
+    return 1
+  fi
+
+  if [[ $(ls -A "$dirToCheck") ]]; then
+    echo "<${FUNCNAME[0]}> failed, $dirToCheck is NOT an empty dir" >&2
+    return 1
+  fi
+
+  return 0
+}
+
+checkers::checkDirs() {
+  # checks if the following directories are empty or does not exist
+  # - landing area
+  # - pre processing
+  # - processing
+  # - archive
+
+  ## PARAMETERS ##
+
+  ## RETURNS ##
+  #   0: if successful
+  #   1: if it fails while checking a certain directory
+
+  # check if directories exist
+  output=$(checkers::_isDir "${Dirs[landing]}" 2>&1)
+  if [[ "$?" -ne 0 ]]; then
+    echo "<${FUNCNAME[0]}> failed, $output" >&2
+    return 1
+  fi
+
+  output=$(checkers::_isDir "${Dirs[processing]}" 2>&1)
+  if [[ "$?" -ne 0 ]]; then
+    echo "<${FUNCNAME[0]}> failed, $output" >&2
+    return 1
+  fi
+
+  output=$(checkers::_isDir ${Dirs[archive]} 2>&1)
+  if [[ "$?" -ne 0 ]]; then
+    mkdir "${Dirs[archive]}"
+  fi
+
+  # check for empty directories
+  output=$(checkers::_isDirEmpty "${Dirs[landing]}" 2>&1)
+  if [[ "$?" -eq 0 ]]; then
+    echo "<${FUNCNAME[0]}> failed, landing directory is empty" >&2
+    return 1
+  fi
+
+  output=$(checkers::_isDirEmpty "${Dirs[processing]}" 2>&1)
+  if [[ "$?" -ne 0 ]]; then
+    echo "<${FUNCNAME[0]}> failed, $output" >&2
+    return 1
+  fi
+
+  echo "<${FUNCNAME[0]}> finished checking directories"
+  return 0
+}

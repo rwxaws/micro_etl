@@ -1,0 +1,51 @@
+pid::checkPID() {
+  # check if the pid file exists (if the etl is running)
+
+  ## PARAMETERS ##
+
+  ## RETURNS ##
+  #   0: no PID file exists (or if it exists then it does not contain
+  #      pid of a running process)
+  #   1: PID file contains a running process
+
+  # local variable declaration
+  declare pid
+
+  # check if pid file exists and has a running job pid
+  if [[ -f "${Files[pid]}" ]]; then
+    pid=$(cat "${Files[pid]}")
+
+    ps -p "$pid" > /dev/null 2>&1
+    if [[ "$?" -eq 0 ]]; then
+      echo "<${FUNCNAME[0]}> failed, process is already running" >&2
+      return 1
+    fi
+  fi
+
+  echo "<${FUNCNAME[0]}> checked PID sucessfully" >&2
+  return 0
+}
+
+pid::createPID() {
+  # creates a PID file to prevent the parallel run of etl scripts
+  # requires the external script to exit
+
+  ## PARAMETERS ##
+
+  ## RETURNS ##
+  #   0: PID was written to PID file sucessfully
+  #   1: could not write PID to PID file
+
+  # local variable declaration
+  declare output
+
+  # write PID to pid file
+  output=$(echo $$ 2>&1 > "${Files[pid]}")
+  if [[ "$?" -ne 0 ]]; then
+    echo "<${FUNCNAME[0]}> failed, couldn't write pid to ${Files[pid]}, $output" >&2
+    return 1
+  fi
+
+  echo "<${FUNCNAME[0]}> created pid successfully"
+  return 0
+}

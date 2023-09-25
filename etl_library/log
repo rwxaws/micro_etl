@@ -1,0 +1,80 @@
+source "${Scripts_Dir}/etl_library/checkers"
+source "${Scripts_Dir}/etl_library/cosmetics"
+
+log::logLoadedFiles() {
+  # keeps a log of loaded files after they've been loaded into the tables
+  # the log includes the filename and the number of rows per file
+
+  # in the case of msc, not all rows are inserted into msc_hist,
+  # so the loaded_files contains 3 columns (filename, total_count, actual_count)
+
+  ## PARAMETERS ##
+
+  ## RETURNS ##
+  #   0: successful run
+  #   1: failed to log the loaded files
+  #   2: insufficient number of arguments was provided
+
+  declare loadedFiles="${Dirs[processing]}/*"
+  declare filename="$(date +%Y%m%d_%H)_files"
+  declare dirname="${Dirs[loaded]}/$(date +%Y_%m)_files"
+  declare output
+  declare rowsCount
+  declare actualRowsCount
+
+  output=$(checkers::_isDir "$dirname" 2>&1)
+  if [[ "$?" -ne 0 ]] ; then
+    mkdir "$dirname"
+  fi
+
+  for file in $loadedFiles; do
+    rowsCount=$(zcat $file | sed -n '$=')
+
+    # in the msc source, the rows with a record_type (2nd column) of 24 or 25
+    # are ignored in the loading, so we must only count the number of rows that
+    # contain other values only
+
+    if [[ "${Info[file_source]}" = "msc" ]]; then
+      actualRowsCount=$(zcat $file \
+      | awk 'BEGIN {FS=","} $2 != 24 && $2 != 25 {print}' \
+      | sed -n '$='
+      )
+    fi
+
+    if [[ "${Info[file_source]}" = "msc" ]]; then
+      echo "$(basename "${file}"),"${rowsCount}","${actualRowsCount}"" >> "${dirname}/${filename}"
+    else
+      echo "$(basename "${file}"),"${rowsCount}"" >> "${dirname}/${filename}"
+    fi
+
+  done
+
+  echo "<${FUNCNAME[0]}> logged loaded files successfully"
+  return 0
+}
+
+log::log() {
+  # write a log message in the log
+
+  ## PARAMETERS ##
+  #   1: log type (ex: info,error,execution time)
+  #   2: log message
+
+  ## RETURNS ##
+  #   0: Ran successfully
+  #   2: Insufficient number of parameters was provided
+
+  checkers::_checkSufficientArguments "2" "$#" || return 2
+
+  declare tag=$1
+  declare logMsg=$2
+  declare datetime=$(date +"%F %R")
+
+  if [[ -z "$tag" ]]; then
+    echo "<${FUNCNAME[0]}> failed, please provide a tag" >&2
+    return 1
+  fi
+
+  echo "$datetime [${tag^^}] $logMsg" >> "${Dirs[log]}"
+  return 0
+}

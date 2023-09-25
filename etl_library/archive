@@ -1,0 +1,26 @@
+archive::archiveFiles() {
+  # archives files from processing dir to archive dir
+  # removes files from processing dir
+
+  ## PARAMETERS ##
+
+  ## RETURNS ##
+  #   0: successful
+  #   1: failure in transferring or removing files
+
+  declare rsyncOptions=(
+    --no-motd 
+    -rlgoz 
+    --remove-source-files
+  )
+  declare output
+
+  output=$(rsync "${rsyncOptions[@]}" "${Dirs[processing]}"/* "${Dirs[archive]}" 2>&1)
+  if [[ "$?" -ne 0 ]]; then
+    echo "<${FUNCNAME[0]}> copy to archive directory failed, $output" >&2
+    return 1
+  fi
+
+  echo "<${FUNCNAME[0]}> copy to archive directory succeeded"
+  return 0
+}

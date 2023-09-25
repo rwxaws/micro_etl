@@ -1,0 +1,101 @@
+source "${Scripts_Dir}/etl_library/checkers"
+
+process::excludeFiles() {
+  # creates the exclude.txt file which is used to execlude files
+  # by the copyLandingArea function
+
+  ## PARAMETERS ##
+
+  ## RETURNS ##
+  #   0: successful run
+  #   1: an error occurred
+
+  # local variable declaration
+  declare excludedFilesList=$(
+    find ${Dirs[landing]} -type f -printf '%T+,%f\n' \
+    | sort \
+    | cut -d, -f2 \
+    | tail -n ${Info[excluded_count]}
+  )
+  declare output
+
+  output=$(echo "$excludedFilesList" 2>&1 > "${Files[excluded]}")
+  if [[ "$?" -ne 0 ]]; then
+    echo "<${FUNCNAME[0]}> failed, can't write to the excluded file, $output" >&2
+    return 1
+  fi
+
+  echo "<${FUNCNAME[0]}> wrote to excluded file"
+  return 0
+}
+
+process::copyLandingArea() {
+  # Move files from landing directory to processing directory
+
+  ## PARAMETERS ##
+
+  ## RETURNS ##
+  # 0: successful
+  # 1: processing dir is NOT empty, an error occurs while moving files,
+  #    or arguments are NOT dirs
+  # 2: insufficient number of arguments was provided
+
+  declare rsyncOptions=(
+    --no-motd 
+    -rlgoz 
+    --remove-source-files 
+    --exclude "temp"
+    --exclude-from="${Files[excluded]}"
+  )
+  declare output
+  declare numOfFilesCopied
+
+  output=$(rsync "${rsyncOptions[@]}" "${Dirs[landing]}/" "${Dirs[processing]}" 2>&1)
+
+  if [[ "$?" -ne 0 ]]; then
+    echo "<${FUNCNAME[0]}> failed, can't copy to processing directory, $output" >&2
+    return 1
+  fi
+
+  numOfFilesCopied=$(find "${Dirs[processing]}" -type f | sed -n "$=")
+  echo "<${FUNCNAME[0]}> $numOfFilesCopied files were copied from landing area"
+
+  return 0
+}
+
+process::extractFiles() {
+  # extract compressed files and send them to processing directory
+  # this speeds up loading to hdfs, because compressed files are given one
+  # mapper only, because they can not be split
+
+  ## PARAMETERS ##
+
+  # RETURNS ##
+  #   0: successful execution
+  #   1: failed to execute
+
+  declare findOptions=(
+    "${Dirs[processing]}"
+    -type f
+    -exec cp
+    -t "${Dirs[processing]}" {} +
+  )
+  declare output
+
+  # copy files into processing directory
+  output=$(find "${findOptions[@]}" 2>&1)
+  if [[ "$?" -ne 0 ]]; then
+    echo "<${FUNCNAME[0]}> failed, can't copy files to processing directory, $output" >&2
+    return 1
+  fi
+  
+  # gunzip files in processing directory
+  output=$(find "${Dirs[processing]}" -type f -exec gunzip -d {} \; 2>&1)
+  if [[ "$?" -ne 0 ]]; then
+    echo "<${FUNCNAME[0]}> failed, can't decompress files in processing directory, $output" >&2
+    return 1
+  fi
+
+  echo "<${FUNCNAME[0]}> files are ready to be loaded"
+  return 0
+}

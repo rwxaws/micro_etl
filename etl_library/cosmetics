@@ -1,0 +1,22 @@
+source "${Scripts_Dir}/etl_library/checkers"
+
+cosmetics::_timeFormatter() {
+  # takes time in seconds and format it as MM:SS
+  # for example 125 will be converted to 02:05 
+
+  ## PARAMETERS ##
+  #   1: time in seconds
+
+  ## RETURNS ##
+  #   0: if it executes successfully
+  #   2: if NOT enough parameters were provided
+
+  checkers::_checkSufficientArguments "1" "$#" || return 2
+
+  declare timeInSeconds=$1
+  declare minutes=$(( timeInSeconds / 60 ))
+  declare seconds=$(( timeInSeconds % 60 ))
+
+  printf "%02d:%02d" "$minutes" "$seconds"
+  return 0
+}

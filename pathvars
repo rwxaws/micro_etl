@@ -1,0 +1,50 @@
+# directories
+# change the following depending on the ETL
+# - Scripts_Dir: the directory where the ETL scripts are at
+# - landing: the landing area
+# - Ext_Table: the path and schema of the external table
+# - HQL: the directory where the HQL scripts are at
+# - excluded_count: change depending on the source (usually 0 or 5)
+
+declare -r Scripts_Dir="<absolute path to the scripts directory>"
+
+declare -rA Dirs=(
+  ["landing"]="<absolute path to landing area>"
+  ["processing"]="${Scripts_Dir}/operation_dirs/processing"
+  ["archive"]="${Scripts_Dir}/operation_dirs/archive/$(date +%Y_%m)"
+  ["log"]="${Scripts_Dir}/operation_dirs/logs/$(date +%Y_%m).log"
+  ["loaded"]="${Scripts_Dir}/operation_dirs/loaded_files"
+)
+
+# external table info
+declare -rA Ext_Table=(
+  ["dir"]="<the absolute path of HDFS directory>"
+  ["name"]="<name of the table>"
+)
+
+declare -rA HQL=(
+  ["tmp"]="${Scripts_Dir}/operation_dirs/hql_scripts/msc_hql/msc_ext_to_temp.sql"
+  ["final"]="${Scripts_Dir}/operation_dirs/hql_scripts/msc_hql/msc_temp_to_final.sql"
+  ["ID1"]="${Scripts_Dir}/operation_dirs/hql_scripts/msc_hql/msc_01_to_id_call_trace.sql"
+  ["ID2"]="${Scripts_Dir}/operation_dirs/hql_scripts/msc_hql/msc_02and09_to_id_call_trace.sql"
+  ["ID3"]="${Scripts_Dir}/operation_dirs/hql_scripts/msc_hql/msc_08_to_id_call_trace.sql"
+)
+
+# symbols
+declare -rA Info=(
+  ["file_source"]="msc"
+  ["excluded_count"]=0
+)
+
+# files
+declare -rA Files=(
+  ["pid"]="${Scripts_Dir}/file.pid"
+  ["staging"]="${Scripts_Dir}/stage.txt"
+  ["excluded"]="${Scripts_Dir}/excluded.txt"
+)
+
+declare -rA Email=(
+  ["source_email"]="<the source of email that would appear as the sender>"
+  ["email_list"]="<list of emails to send an error message, in case an error occurs>"
+  ["smtp"]="<domain:port>"
+)

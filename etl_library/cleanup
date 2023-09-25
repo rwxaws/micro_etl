@@ -1,0 +1,52 @@
+cleanup::cleanOperationFiles() {
+  # remove operation files after a successful execution
+
+  ## PARAMETERS ##
+
+  ## RETURNS ##
+
+  rm -f ${Files[staging]}
+  rm -f ${Files[excluded]}
+
+  return 0
+}
+
+cleanup::cleanPID() {
+  # removes the pid file after execution is finished (even if not successful)
+
+  ## PARAMETERS ##
+
+  ## RETURNS ##
+
+  rm -f ${Files[pid]}
+
+  return 0
+}
+
+cleanup::cleanOperationDirs() {
+  # empties operation directories on the local system and HDFS
+
+  ## PARAMETERS ##
+
+  ## RETURNS ##
+
+  # local variable definitions
+  declare output
+
+  # truncate external table
+  output=$(hdfs dfs -rm -r "${Ext_Table[dir]}/*" 2>&1)
+  if [[ "$?" -ne 0 ]]; then
+    echo "<${FUNCNAME[0]}> failed, can't clean ${Ext_Table[name]}, $output" >&2
+    return 1
+  fi
+
+  # empty processing directory
+  output=$(find "${Dirs[processing]}" -type f -exec rm {} + 2>&1)
+  if [[ "$?" -ne 0 ]]; then
+    echo "<${FUNCNAME[0]}> failed, can't remove files in processing dir, $output" >&2
+    return 1
+  fi
+
+  echo "<${FUNCNAME[0]}> operation dirs were cleaned" >&2
+  return 0
+}

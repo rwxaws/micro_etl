@@ -1,0 +1,98 @@
+source "${Scripts_Dir}/etl_library/checkers"
+source "${Scripts_Dir}/etl_library/cosmetics"
+source "${Scripts_Dir}/etl_library/email"
+source "${Scripts_Dir}/etl_library/log"
+
+run::runCMD() {
+  # checks if functions are staged, runs them(with their execution time),
+  # and log their status
+
+  ## PARAMETERS ##
+  #   1: function name (inserted into the staging file),
+  #   2: entire command
+
+  ## RETURNS ##
+  #   0: ran successfully
+  #   1: an error occurred
+  #   2: insufficient number of arguments were provided
+
+  checkers::_checkSufficientArguments "2" "$#" || return 2
+
+  # local variables
+  declare funcName="$1"
+  declare cmd="$2"
+  declare startTime=$(date +%s)
+  declare output
+  declare msg
+
+  # check if the function is staged
+  output=$(run::_checkStaged $funcName)
+  if [[ "$?" -ne 0 ]]; then
+    log::log "info" "Skipping <$funcName> as it has already run"
+    return 0
+  fi
+
+  # run command and check for errors
+  output=$($cmd 2>&1)
+  if [[ "$?" -ne 0 ]]; then
+    msg="$output, took $(cosmetics::_timeFormatter $(( $(date +%s) - startTime )))"
+    log::log "error" "$msg"
+
+    email::sendEmail \
+      "${Email[email_list]}" \
+      "$scriptname ETL script failed" \
+      "$msg"
+
+    return 1
+  fi
+
+  # log command ran successfully
+  run::_stage "$funcName"
+  msg="$output, took $(cosmetics::_timeFormatter $(( $(date +%s) - startTime )))"
+  log::log "info" "$msg"
+  return 0
+}
+
+run::_checkStaged() {
+  # checks if a stage has already run, if so then it is ignored
+
+  ## PARAMETERS ##
+  #   1: function name
+
+  ## RETURNS ##
+  #   0: function is NOT staged
+  #   1: function is already staged
+  #   2: insufficient number of arguments were provided
+
+  checkers::_checkSufficientArguments "1" "$#" || return 2
+
+  declare funcName="$1"
+
+  # ensure that the staging file exists
+  touch "${Files[staging]}"
+
+  # check if the stage already exists
+  if grep -Fxq "$funcName" "${Files[staging]}"; then
+    return 1
+  fi
+
+  return 0
+}
+
+run::_stage() {
+  # adds a function into the staging file
+
+  ## PARAMETERS ##
+  #   1: function name
+
+  ## RETURNS ##
+  #   0: ran successfully
+  #   2: insufficient number of arguments were provided
+
+  checkers::_checkSufficientArguments "1" "$#" || return 2
+
+  declare funcName="$1"
+
+  echo "$funcName" >> "${Files[staging]}"
+  return 0
+}

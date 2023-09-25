@@ -1,0 +1,60 @@
+source "${Scripts_Dir}/etl_library/checkers"
+
+load::HDFSPush() {
+  # pushes files into the external table directory
+
+  ## PARAMETERS ##
+
+  ## RETURNS ##
+  #   0: successful run
+  #   1: an error occurred
+
+  declare output
+
+  # move files from processing directory to external table directory (on HDFS)
+  # dfs.replication is the replication factor set to 1 to speedup transfer
+  output=$(
+    hdfs dfs -Ddfs.replication=1 \
+    -put ${Dirs[processing]}/* ${Ext_Table[dir]} 2>&1
+  )
+  if [[ "$?" -ne 0 ]]; then
+    echo "<${FUNCNAME[0]}> failed, can't push to HDFS, $output" >&2
+    return 1
+  fi
+
+  # output=$(hive -e "LOAD DATA INPATH '"${Ext_Table[dir]}"' INTO TABLE ${Ext_Table[name]}" 2>&1)
+  # if [[ "$?" -ne 0 ]]; then
+  #   echo "<${FUNCNAME[0]}> can not load into table ${Ext_Table[name]}, $output" >&2
+  #   return 1
+  # fi
+
+  echo "<${FUNCNAME[0]}> Loaded into ${Ext_Table[name]}"
+  return 0
+}
+
+load::loadTBL() {
+  # uses HQL scripts to load tables
+
+  ## PARAMETERS ##
+  #   1: HQL script path
+
+  ## RETURNS ##
+  #   0: ran sucessfully
+  #   1: an error occurred
+  #   2: insufficient number of arguments were provided
+
+  checkers::_checkSufficientArguments "1" "$#" || return 2
+
+  # local variables
+  declare hqlScriptPath="$1"
+  declare output
+
+  output=$(hive -f "$hqlScriptPath" 2>&1)
+  if [[ "$?" -ne 0 ]]; then
+    echo "<${FUNCNAME[0]}> failed, couldn't run script $(basename $hqlScriptPath), $output" >&2
+    return 1
+  fi
+
+  echo "<${FUNCNAME[0]}> script $(basename $hqlScriptPath) succeeded"
+  return 0
+}

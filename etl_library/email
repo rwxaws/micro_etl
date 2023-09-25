@@ -1,0 +1,36 @@
+source "${Scripts_Dir}/etl_library/checkers"
+
+email::sendEmail() {
+  # sends an email when an error occurs
+
+  ## PARAMETERS ##
+  #   1: receivers 
+  #   2: message subject
+  #   3: message body
+
+  ## RETURNS ##
+  #   0: successful execution
+  #   1: an error occurred
+  #   2: insufficient number of arguments was given
+
+  checkers::_checkSufficientArguments "3" "$#" || return 2
+
+  declare receiversList="$1"
+  declare msgSubject="$2"
+  declare msgBody="$3"
+  declare emailOptions=(
+    -s "$msgSubject" 
+    -r "${Email[email_list]}" 
+    -S smtp="${Email[smtp]}"
+  )
+  declare output
+
+  output=$(echo -e "$msgBody" | mail "${emailOptions[@]}" "$receiversList" 2>&1)
+
+  if [[ "$?" -ne 0 ]]; then
+    echo "<${FUNCNAME[0]}> failed, could not send email, $output" >&2
+    return 1
+  fi
+
+  return 0
+}
